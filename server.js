@@ -86,42 +86,42 @@ const authLimiter = rateLimit({
 // ============================================
 // MIDDLEWARE CORS
 // ============================================
-const isDevelopment = process.env.NODE_ENV !== 'production';
-
-// Liste des origines autorisées
+// Configuration CORS améliorée
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:3000','http://localhost:3001', 'http://localhost:5173'];
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:3000', 'http://localhost:5173','https://restaurant-frontend-foni7k5of-devros-projects.vercel.app'];
 
+console.log('🌍 Origines autorisées:', allowedOrigins);
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // En développement, autoriser toutes les origines localhost
-    if (isDevelopment) {
-      if (!origin || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
-        return callback(null, true);
-      }
+    // Autoriser les requêtes sans origin (Postman, mobile apps, etc.)
+    if (!origin) {
+      console.log('✅ Requête sans origin autorisée');
+      return callback(null, true);
     }
     
-    // En production, vérifier la liste blanche
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ Origin autorisée:', origin);
       callback(null, true);
     } else {
+      console.log('❌ Origin refusée:', origin);
+      console.log('📋 Origines autorisées:', allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   exposedHeaders: ['Set-Cookie'],
-  maxAge: 86400 // 24 heures
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
 
-// Gérer explicitement les requêtes OPTIONS (preflight)
+// Important : Gérer les requêtes OPTIONS explicitement
 app.options('*', cors(corsOptions));
-
 // ============================================
 // MIDDLEWARE BODY PARSER
 // ============================================
