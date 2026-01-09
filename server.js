@@ -20,6 +20,9 @@ const dashboardRoutes = require('./routes/dashboard');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Important: Trust proxy pour que Express reconnaisse les requêtes HTTPS derrière un reverse proxy
+app.set('trust proxy', 1);
+
 // ============================================
 // CONFIGURATION CORS (DOIT ÊTRE EN PREMIER)
 // ============================================
@@ -29,9 +32,6 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       'http://localhost:3000',
       'http://localhost:3001', 
       'http://localhost:5173',
-      'http://restaurant-frontend-466bzhl3i-devros-projects.vercel.app',
-      'http://restaurant-frontend-git-main-devros-projects.vercel.app',
-      'http://restaurant-frontend-eta-two.vercel.app',
     ];
 
 // Patterns dynamiques pour Vercel et localhost
@@ -161,7 +161,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // CONFIGURATION DES SESSIONS
 // ============================================
 
-app.use(session({
+const sessionConfig = {
   store: new pgSession({
     pool: pool,
     tableName: 'sessions',
@@ -172,13 +172,17 @@ app.use(session({
   saveUninitialized: false,
   name: 'sessionId',
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000, // 24 heures
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    secure: process.env.NODE_ENV === 'production', // HTTPS uniquement en production
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' pour cross-domain en production
+    domain: process.env.NODE_ENV === 'production' ? undefined : undefined // Pas de domain spécifique
   },
-  rolling: true
-}));
+  rolling: true,
+  proxy: true // Important pour les reverse proxies (Render)
+};
+
+app.use(session(sessionConfig));
 
 // Middleware de debug des sessions
 app.use((req, res, next) => {
@@ -188,7 +192,9 @@ app.use((req, res, next) => {
     origin: req.headers.origin,
     sessionID: req.sessionID,
     hasUserId: !!req.session?.userId,
-    cookie: req.session?.cookie
+    cookie: req.session?.cookie,
+    isSecure: req.secure,
+    protocol: req.protocol
   });
   next();
 });
@@ -215,7 +221,12 @@ app.get('/', (req, res) => {
     message: 'API Restaurant - Serveur opérationnel',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    cors: 'Vercel wildcard + fixed origins enabled'
+    cors: 'Vercel wildcard + fixed origins enabled',
+    session: {
+      secure: sessionConfig.cookie.secure,
+      sameSite: sessionConfig.cookie.sameSite,
+      httpOnly: sessionConfig.cookie.httpOnly
+    }
   });
 });
 
@@ -297,6 +308,12 @@ const server = app.listen(PORT, () => {
   console.log('  ✅ Vercel wildcard enabled');
   console.log('  ✅ Localhost all ports enabled');
   console.log('  ✅ Fixed origins enabled');
+  console.log('');
+  console.log('🍪 Session Configuration:');
+  console.log(`  ✅ Secure: ${sessionConfig.cookie.secure}`);
+  console.log(`  ✅ SameSite: ${sessionConfig.cookie.sameSite}`);
+  console.log(`  ✅ HttpOnly: ${sessionConfig.cookie.httpOnly}`);
+  console.log(`  ✅ Proxy: ${sessionConfig.proxy}`);
   console.log('');
   console.log('📋 Routes disponibles:');
   console.log('  - GET  /');
