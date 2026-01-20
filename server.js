@@ -33,7 +33,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 // Patterns pour Vercel et localhost
 const allowedPatterns = [
-  /^https:\/\/restaurant-frontend.*\.vercel\.app$/,
+  /^https:\/\/restaurant-test-frontend.*\.vercel\.app$/,
   /^http:\/\/localhost:\d+$/,
   /^http:\/\/127\.0\.0\.1:\d+$/,
 ];
